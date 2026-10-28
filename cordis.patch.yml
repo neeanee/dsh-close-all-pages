@@ -1,0 +1,3 @@
+- insert:
+    - id: close-all-pages
+      name: 'dsh-close-all-pages'

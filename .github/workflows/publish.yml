@@ -1,0 +1,76 @@
+name: publish
+
+# 发布流程：把 package.json 的 version 改成新版本 → 提交 → 打 tag 并推送
+#   git tag v0.1.1 && git push origin v0.1.1
+# 也可以手动触发（Actions → publish → Run workflow），勾上 dry_run 只验证打包内容。
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '只验证：跑检查并打印 npm pack 的内容，不发布'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  # --provenance 需要把 GitHub 的 OIDC 令牌交给 npm 生成来源证明
+  id-token: write
+
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: publish to npm
+    runs-on: ubuntu-latest
+    # 可选：在仓库 Settings → Environments 里给 npm 环境加“需要审批”，
+    # 发布前就必须有人点确认；环境不存在时 GitHub 会自动创建一个无规则的。
+    environment: npm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Tag matches package.json
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          tag="${GITHUB_REF_NAME#v}"
+          echo "package.json=$version  tag=$tag"
+          if [ "$version" != "$tag" ]; then
+            echo "::error::tag v$tag does not match package.json version $version"
+            exit 1
+          fi
+
+      - name: Validate sources
+        run: |
+          set -euo pipefail
+          node --check index.js
+          node --check client.js
+          node -e "JSON.parse(require('fs').readFileSync('package.json','utf8'))"
+          node -e "JSON.parse(require('fs').readFileSync('locale/en.json','utf8'))"
+          node -e "JSON.parse(require('fs').readFileSync('locale/zh.json','utf8'))"
+
+      - name: Show packed contents
+        run: npm pack --dry-run
+
+      - name: Publish
+        if: github.event_name == 'push' || inputs.dry_run != true
+        env:
+          # 在仓库 Settings → Secrets and variables → Actions 里新建 NPM_TOKEN。
+          # 若要改用 npm Trusted Publishing（OIDC，无需长期令牌）：
+          #   1) npmjs.com → 包 → Settings → Trusted Publishing 绑定本仓库与 publish.yml
+          #   2) 删掉下面的 env 与 setup-node 的 registry-url
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance
