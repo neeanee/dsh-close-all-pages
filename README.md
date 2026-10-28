@@ -21,22 +21,24 @@
 
 要求 DSH `>= 0.2.1-rc.3`（`package.json` 的 `engines.dsh` 会在安装前检查）。
 
-**方式一：界面**
-侧边栏 → **插件** → 安装 → 在安装框里填 `dsh-close-all-pages`（或 `dsh-close-all-pages@0.1.0`）。
+本插件**没有发布到 npm**，从 GitHub 仓库或本地目录安装。
 
-**方式二：让 Agent 装**
-对 Agent 说「安装 dsh-close-all-pages 这个插件」，或直接调用工具：
+**从 GitHub 装**
 
-```
-plugin_manager(action: "install_bundle", target: "dsh-close-all-pages")
-```
-
-**方式三：从源码 / GitHub**
-`target` 也可以是 `pnpm add` 认识的其它写法：
+让 Agent 装，或直接调用工具：
 
 ```
-plugin_manager(action: "install_bundle", target: "github:<你的账号>/dsh-close-all-pages#v0.1.0")
-plugin_manager(action: "install_bundle", target: "link:<本目录的绝对路径>")
+plugin_manager(action: "install_bundle", target: "github:neeanee/dsh-close-all-pages#v0.1.0")
+```
+
+`#v0.1.0` 是固定版本；换成 `#main` 则跟随最新提交。
+
+**从本地目录装**
+
+把仓库下载到本地后，`target` 填目录的绝对路径（或 `link:<绝对路径>`）：
+
+```
+plugin_manager(action: "install_bundle", target: "link:C:/path/to/dsh-close-all-pages")
 ```
 
 安装后默认启用，改动立即生效（HMR）。
@@ -67,23 +69,18 @@ plugin_manager(action: "install_bundle", target: "link:<本目录的绝对路径
 
 ## 发布（维护者）
 
-仓库根目录就是包根目录。`files` 已限定发布内容（`client.js`、`index.js`、
+**没有配置自动发布。** `.github/workflows/publish.yml` 只支持手动触发
+（Actions → publish → Run workflow），默认勾着 `dry_run`，只跑检查和打包预览，不会发布。
+
+如果以后要发到 npm，需要下面其一：
+
+- 仓库 Secret `NPM_TOKEN`：对该包有读写权限的 npm token；
+- 或 npm Trusted Publishing（OIDC）：在 npm 包设置里绑定本仓库与 `publish.yml`，
+  然后删掉 workflow 里的 `NODE_AUTH_TOKEN` 与 `registry-url`。
+
+仓库根目录就是包根目录。`files` 已限定打包内容（`client.js`、`index.js`、
 `cordis.patch.yml`、`locale/*.json`、`icon.svg`、`README.md`、`LICENSE`），
 `.github/` 不会进 tarball。
-
-1. 改版本并提交：`npm version patch|minor|major`（顺带打 tag）；
-2. 推 tag：`git push origin main --follow-tags`；
-3. `.github/workflows/publish.yml` 会依次检查：tag 与 `package.json` 版本一致 →
-   `node --check` → `npm pack --dry-run` → `npm publish --provenance`。
-
-也可手动触发（Actions → publish → Run workflow），勾上 `dry_run` 就只验证、不发布。
-
-首次发布前需要其一：
-
-- **仓库 Secret `NPM_TOKEN`**：npm 的 Automation 或 Granular token，对该包有读写权限；
-- **或改用 npm Trusted Publishing（OIDC，无需长期令牌）**：npmjs.com → 包 → Settings →
-  Trusted Publishing 绑定本仓库与 `publish.yml`，然后删掉 workflow 里的
-  `NODE_AUTH_TOKEN` 和 `setup-node` 的 `registry-url`。
 
 ## License
 
